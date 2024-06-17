@@ -13,6 +13,11 @@ Icarus Mod Manager provides the following key features.
     * Mods must be built specifically to use this feature. If they are not, they will still work, but may need to be updated by the mod author each time the game updates. There is more information for mod authors later in this document.
 * No mod loader required. The game will automatically load installed mods.
 
+## Pie's Customisation
+
+* Adds a -install command line parameter which runs the mod installation function and exits, for quicker development turnaround
+* Adds a method of selecting patch locations by using JSON Queries, so multiple rows can be patched at a time, as well as selecting rows by name instead of index
+
 ## Releases
 
 Releases can be found [here](https://github.com/CrystalFerrai/IcarusModManager/releases).
