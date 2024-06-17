@@ -99,11 +99,11 @@ namespace IcarusModManager.Model
 	/// </summary>
 	internal class JsonPatchData
 	{
-		public List<List<Operation>> Patches { get; }
+		public List<List<JsonPatchOperation>> Patches { get; }
 
 		public JsonPatchData()
 		{
-			Patches = new List<List<Operation>>();
+			Patches = new List<List<JsonPatchOperation>>();
 		}
 
 		/// <summary>
@@ -118,10 +118,10 @@ namespace IcarusModManager.Model
 			foreach (JToken? patchToken in patchList)
 			{
 				JArray patch = patchToken as JArray ?? throw new FormatException("'data' property not valid for patch type 'Json'");
-				List<Operation> operations = new List<Operation>();
+				List<JsonPatchOperation> operations = new List<JsonPatchOperation>();
 				foreach(var operation in patch)
 				{
-					operations.Add(operation.ToObject<Operation>() ?? throw new FormatException("'data' property not valid for patch type 'Json'"));
+					operations.Add(operation.ToObject<JsonPatchOperation>() ?? throw new FormatException("'data' property not valid for patch type 'Json'"));
 				}
 				data.Patches.Add(operations);
 			}
@@ -129,10 +129,20 @@ namespace IcarusModManager.Model
 		}
 	}
 
-	/// <summary>
-	/// Data associated with the Actor ModPatchType
-	/// </summary>
-	internal class ActorPatchData
+    class JsonPatchOperation
+    {
+        public string op;
+		public string path;
+        public string pointer;
+        public string query;
+        public object value;
+		public string from = "";
+    }
+
+    /// <summary>
+    /// Data associated with the Actor ModPatchType
+    /// </summary>
+    internal class ActorPatchData
 	{
 		public List<string> Components { get; }
 

@@ -12,13 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using IcarusModManager.Model;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.JsonPatch.Exceptions;
 using Microsoft.AspNetCore.JsonPatch.Operations;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace IcarusModManager.Integrator
 {
@@ -39,16 +42,40 @@ namespace IcarusModManager.Integrator
 		/// <param name="source">The serialized source Json data to patch</param>
 		/// <param name="patches">The patches to apply</param>
 		/// <returns>The Json with the patches applied to it</returns>
-		public static string Integrate(string source, IEnumerable<List<Operation>> patches)
+		public static string Integrate(string source, IEnumerable<List<JsonPatchOperation>> patches)
 		{
 			object? sourceObj = JsonConvert.DeserializeObject(source);
+			JObject jSourceObj = JObject.Parse(source);
 			if (sourceObj == null) throw new ArgumentException("Unable to parse source.", nameof(source));
 
 			DefaultContractResolver contractResolver = new();
 
-			foreach (List<Operation> patchList in patches)
+			foreach (List<JsonPatchOperation> patchList in patches)
 			{
-				JsonPatchDocument document = new JsonPatchDocument(patchList, contractResolver);
+				List<Operation> expandedPatchList = new List<Operation>();
+				foreach (JsonPatchOperation op in patchList)
+				{
+					// Old style patch, uses JSONPointer in the path field
+                    if (op.path != null)
+					{
+                        expandedPatchList.Add(new Operation(op.op, op.path, op.from, op.value));
+                    }
+					else if(op.query != null)
+					{
+						// Uses JSONQuery to select multiple rows, and JSON pointer to select specific subfields
+						foreach(var newPath in jSourceObj.SelectTokens(op.query))
+						{
+							expandedPatchList.Add(new Operation(op.op, ConvertPathToPointer(newPath.Path) + op.pointer.TrimStart('@'), op.from, op.value));
+						}
+					}
+					else
+					{
+						// Direct JSONPointer path
+						expandedPatchList.Add(new Operation(op.op, op.pointer, op.from, op.value));
+					}
+				}
+
+                JsonPatchDocument document = new JsonPatchDocument(expandedPatchList, contractResolver);
 				try
 				{
 					document.ApplyTo(sourceObj);
@@ -61,5 +88,13 @@ namespace IcarusModManager.Integrator
 
 			return JsonConvert.SerializeObject(sourceObj, Formatting.Indented);
 		}
+
+		private static string ConvertPathToPointer(string path)
+		{
+			var pointer = Regex.Replace(path, @"\[(.+?)\]\.?", @"/$1/").Replace(".", "/").Replace("'", "");
+
+			return "/" + pointer;
+
+        }
 	}
 }

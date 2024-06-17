@@ -14,6 +14,8 @@
 
 using IcarusModManager.Utils;
 using System;
+using System.IO;
+using System.Linq;
 using System.Windows;
 
 namespace IcarusModManager
@@ -53,9 +55,29 @@ namespace IcarusModManager
 		/// </summary>
 		protected override void OnStartup(StartupEventArgs e)
 		{
-			mMainWindowVM = new MainWindowVM();
-			MainWindow = new MainWindow(mMainWindowVM);
-			MainWindow.Show();
+			if(e.Args.Contains("--install"))
+			{
+
+                var mSettings = new Settings();
+				mSettings.Load();
+
+                if (!Directory.Exists(mSettings.GameDirectory))
+				{
+                    Current.Shutdown(1);
+                }
+
+                var mModManager = new ModManager();
+				mModManager.Load();
+                mModManager.InstallMods(mSettings.GameDirectory);
+
+                Current.Shutdown();
+            }
+			else
+			{
+				mMainWindowVM = new MainWindowVM();
+				MainWindow = new MainWindow(mMainWindowVM);
+				MainWindow.Show();
+			}
 
 			// Calling base fires the Startup event
 			base.OnStartup(e);
