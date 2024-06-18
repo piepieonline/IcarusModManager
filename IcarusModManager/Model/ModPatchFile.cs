@@ -129,13 +129,21 @@ namespace IcarusModManager.Model
 		}
 	}
 
+    class JsonRowModifyOperation
+    {
+        public string? baseValue;
+        public string operation;
+        public dynamic operand;
+    }
+
     class JsonPatchOperation
     {
         public string op;
-		public string path;
-        public string pointer;
-        public string query;
-        public object value;
+		public string? path;
+        public string? pointer;
+        public string? query;
+        public object? value;
+		public JsonRowModifyOperation? valueCalculation;
 		public string from = "";
     }
 

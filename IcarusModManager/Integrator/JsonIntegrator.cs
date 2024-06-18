@@ -20,6 +20,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
@@ -63,9 +64,21 @@ namespace IcarusModManager.Integrator
 					else if(op.query != null)
 					{
 						// Uses JSONQuery to select multiple rows, and JSON pointer to select specific subfields
-						foreach(var newPath in jSourceObj.SelectTokens(op.query))
+						// Reverse the results, because otherwise our indexes will get messed up - if we remove index 1 before index 4, index 4 is now incorrect
+						foreach(var newPath in jSourceObj.SelectTokens(op.query).Reverse())
 						{
-							expandedPatchList.Add(new Operation(op.op, ConvertPathToPointer(newPath.Path) + op.pointer.TrimStart('@'), op.from, op.value));
+							object rowValue = op.value;
+
+							// If we have a valueCalculation, we need to calculate the value based on some provided 'in'
+							if(rowValue == null && op.valueCalculation != null)
+							{
+								Type baseType = newPath.Type == JTokenType.Integer ? typeof(int) : typeof(float);
+								// TODO: Base costs on other fields?
+                                rowValue = DoOperation(newPath.ToObject(baseType), op.valueCalculation); 
+							}
+
+							var pathSuffix = op.pointer == null ? "" : op.pointer.TrimStart('@');
+                            expandedPatchList.Add(new Operation(op.op, ConvertPathToPointer(newPath.Path) + pathSuffix, op.from, rowValue));
 						}
 					}
 					else
@@ -91,10 +104,35 @@ namespace IcarusModManager.Integrator
 
 		private static string ConvertPathToPointer(string path)
 		{
-			var pointer = Regex.Replace(path, @"\[(.+?)\]\.?", @"/$1/").Replace(".", "/").Replace("'", "");
+			string pointer = Regex.Replace(path, @"\[(.+?)\]\.?", @"/$1/").Replace(".", "/").Replace("'", "");
 
-			return "/" + pointer;
-
+			return "/" + pointer.Trim('/');
         }
+
+		private static dynamic DoOperation(dynamic existingValue, JsonRowModifyOperation operation)
+		{
+			var newValue = existingValue;
+
+            switch (operation.operation)
+			{
+				case "add":
+                    newValue = existingValue + operation.operand;
+					break;
+				case "subtract":
+                    newValue = existingValue - operation.operand;
+					break;
+				case "multiply":
+                    newValue = existingValue * operation.operand;
+					break;
+				case "divide":
+                    newValue = existingValue / operation.operand;
+					break;
+			}
+
+			// Catch the case where a value gets rounded down to 0 required
+			if (newValue.GetType() == typeof(System.Int64) && newValue == 0) return 1;
+
+			return newValue;
+		}
 	}
 }
