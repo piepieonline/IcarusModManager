@@ -20,6 +20,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
@@ -62,11 +63,14 @@ namespace IcarusModManager.Integrator
                     }
 					else if(op.query != null)
 					{
-						// Uses JSONQuery to select multiple rows, and JSON pointer to select specific subfields
-						foreach(var newPath in jSourceObj.SelectTokens(op.query))
-						{
-							expandedPatchList.Add(new Operation(op.op, ConvertPathToPointer(newPath.Path) + op.pointer.TrimStart('@'), op.from, op.value));
-						}
+                        // Uses JSONQuery to select multiple rows, and JSON pointer to select specific subfields
+                        // Reverse the results, because otherwise our indexes will get messed up - if we remove index 1 before index 4, index 4 is now incorrect
+                        foreach (var newPath in jSourceObj.SelectTokens(op.query).Reverse())
+                        {
+                            object rowValue = op.value;
+                            var pathSuffix = op.pointer == null ? "" : op.pointer.TrimStart('@');
+                            expandedPatchList.Add(new Operation(op.op, ConvertPathToPointer(newPath.Path) + pathSuffix, op.from, rowValue));
+                        }
 					}
 					else
 					{
@@ -93,7 +97,7 @@ namespace IcarusModManager.Integrator
 		{
 			var pointer = Regex.Replace(path, @"\[(.+?)\]\.?", @"/$1/").Replace(".", "/").Replace("'", "");
 
-			return "/" + pointer;
+			return "/" + pointer.Trim('/');
 
         }
 	}
